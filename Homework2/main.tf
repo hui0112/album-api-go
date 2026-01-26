@@ -16,6 +16,19 @@ provider "aws" {
 }
 
 # Your ec2 instance
+# resource "aws_instance" "demo-instance" {
+#   ami                    = data.aws_ami.al2023.id
+#  instance_type          = "t2.micro"
+#  iam_instance_profile   = "LabInstanceProfile"
+#  vpc_security_group_ids = [aws_security_group.ssh.id]
+#  key_name               = var.ssh_key_name
+#
+#  tags = {
+#    Name = "terraform-created-instance-:)"
+#  }
+# }
+
+# --- INSTANCE 1 ---
 resource "aws_instance" "demo-instance" {
   ami                    = data.aws_ami.al2023.id
   instance_type          = "t2.micro"
@@ -24,7 +37,20 @@ resource "aws_instance" "demo-instance" {
   key_name               = var.ssh_key_name
 
   tags = {
-    Name = "terraform-created-instance-:)"
+    Name = "terraform-created-instance-1"
+  }
+}
+
+# --- INSTANCE 2 (The Copy) ---
+resource "aws_instance" "demo-instance-2" {
+  ami                    = data.aws_ami.al2023.id
+  instance_type          = "t2.micro"
+  iam_instance_profile   = "LabInstanceProfile"
+  vpc_security_group_ids = [aws_security_group.ssh.id]
+  key_name               = var.ssh_key_name
+
+  tags = {
+    Name = "terraform-created-instance-2"
   }
 }
 
