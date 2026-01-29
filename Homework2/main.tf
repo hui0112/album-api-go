@@ -54,11 +54,12 @@ resource "aws_instance" "demo-instance-2" {
   }
 }
 
-# Your security that grants ssh access from
+# Your security that grants ssh access from, handle aws_security_group
 # your ip address to your ec2 instance
 resource "aws_security_group" "ssh" {
   name        = "allow_ssh_from_me"
   description = "SSH from a single IP"
+  // inbound rule
   ingress {
     description = "SSH"
     from_port   = 22
@@ -66,9 +67,11 @@ resource "aws_security_group" "ssh" {
     protocol    = "tcp"
     cidr_blocks = [var.ssh_cidr]
   }
+  // outbound rule
   egress {
     from_port   = 0
     to_port     = 0
+    # anything, allows server to reach out to the internet to download updates or Git repos
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
