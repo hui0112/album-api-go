@@ -59,23 +59,13 @@ resource "aws_instance" "demo-instance-2" {
 resource "aws_security_group" "ssh" {
   name        = "allow_ssh_from_me"
   description = "SSH from a single IP"
-  # inbound rule
-  # Rule 1: For you to manage the server
+  // inbound rule
   ingress {
     description = "SSH"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
     cidr_blocks = [var.ssh_cidr]
-  }
-
-  # Rule 2: For the world to see your Homework API
-  ingress {
-    description = "Web API"
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
   }
   // outbound rule
   egress {
@@ -97,10 +87,6 @@ data "aws_ami" "al2023" {
   }
 }
 
-output "instance_1_dns" {
+output "ec2_public_dns" {
   value = aws_instance.demo-instance.public_dns
-}
-
-output "instance_2_dns" {
-  value = aws_instance.demo-instance-2.public_dns
 }
