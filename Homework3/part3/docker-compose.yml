@@ -1,0 +1,47 @@
+# YAML (YAML Ain't Markup Language)--Human-readable data serialization language
+# it tells Docker: "Please provide me with one Go server container and one Locust container,
+# connected to the same network."
+
+version: '3'
+
+services:
+  # 1. 你的 Gin 服务器
+  webapp:  # hostname
+    build: .  # 这里改成 build: . 表示用当前目录的 Dockerfile 构建
+
+    # The Locust Worker (the "soldier") is sitting inside the Docker network. It doesn't know what "localhost" is (to the worker, "localhost" is itself!).
+    # It needs the internal name webapp to find the Go server.
+    ports:
+      - "8080:8080"  # http://webapp:8080, the internal address of my Go Server inside the Docker network
+    environment:
+      - PORT=8080
+    networks:
+      - loadtest-net
+
+  # 2. Locust Master
+  master:
+    image: locustio/locust # downloaded a pre-packaged box containing Python, the Locust code, and this web interface.
+    # localhost:8089：the Locust Web Interface running on my computer
+    # This opens a "window" from your Mac into the container so you can see the buttons and charts.
+    # Without this, the interface would exist inside the container, but you couldn't reach it from Chrome.
+    ports:
+      - "8089:8089" # Maps internal port 8089 to Mac's port 8089
+    volumes:
+      - ./:/mnt/locust
+    command: -f /mnt/locust/locustfile.py --master
+    networks:
+      - loadtest-net
+
+  # 3. Locust Worker
+  worker:
+    image: locustio/locust
+    volumes:
+      - ./:/mnt/locust
+    command: -f /mnt/locust/locustfile.py --worker --master-host master
+    networks:
+      - loadtest-net
+    depends_on:
+      - master
+
+networks:
+  loadtest-net:
