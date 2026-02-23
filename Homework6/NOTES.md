@@ -1,8 +1,6 @@
 # Homework 6 - Implementation Notes
 
-## Current State: Part 2 (Single Instance)
-
-Part 3 (ALB + Auto Scaling) will be added as a separate commit on top of this.
+## Current State: Part 3 (ALB + Auto Scaling)
 
 ---
 
@@ -119,18 +117,76 @@ locust -f locustfile.py --host=http://<ECS_PUBLIC_IP>:8080 -u 20 -r 20 -t 3m --h
 ### Why check exactly 100 products?
 The assignment simulates **fixed-cost computation** — like running an ML model where every request takes the same amount of work regardless of input. This makes CPU the bottleneck (not I/O or network), which is exactly what auto scaling is designed to solve.
 
-### What Part 3 will add
-- **ALB**: Distributes requests across multiple ECS tasks (round-robin)
-- **Target Group**: Tracks which tasks are healthy via `/health` endpoint
-- **Auto Scaling**: Watches CPU metric, adds tasks when >70%, removes when load drops
-- **Result**: The 20-user test that broke Part 2 should work fine with 2-4 instances
-
 ---
 
-## TODO: Part 3
-- [ ] Add `modules/alb/` (ALB + target group + listener + security group)
-- [ ] Update `modules/ecs/` (load_balancer block + auto scaling resources)
-- [ ] Update `modules/network/` (add vpc_id output)
-- [ ] Update `terraform/main.tf` (wire ALB module)
-- [ ] Update `terraform/outputs.tf` (add ALB DNS output)
-- [ ] Load test through ALB and compare results
+## Part 3: ALB + Auto Scaling
+
+### What Was Added
+
+#### 1. New `modules/alb/` module
+- **ALB Security Group** — allows port 80 inbound from anywhere
+- **Application Load Balancer** — internet-facing, distributes traffic across ECS tasks
+- **Target Group** — type `ip` (required for Fargate), health check on `/health` every 30s
+- **Listener** — listens on port 80, forwards to target group on port 8080
+
+#### 2. Modified `modules/ecs/main.tf`
+- Added `load_balancer` block to ECS service — registers tasks with ALB target group
+- Changed `desired_count` from 1 to 2 (matches auto scaling min)
+- Added `aws_appautoscaling_target` — min=2, max=4 tasks
+- Added `aws_appautoscaling_policy` — target tracking on CPU 70%, 300s cooldown both directions
+
+#### 3. Modified `terraform/main.tf`
+- Added `module "alb"` block wired to network module outputs
+- Passed `target_group_arn` from ALB module to ECS module
+- Changed `ecs_count` to 2
+
+### Traffic Flow
+```
+User → ALB (port 80) → Target Group → ECS Task 1 (port 8080)
+                                     → ECS Task 2 (port 8080)
+                                     → ECS Task 3 (if scaled up)
+                                     → ECS Task 4 (if scaled up)
+```
+
+### Auto Scaling Behavior
+```
+CPU < 70% for 300s → remove 1 task (down to min 2)
+CPU > 70% for 300s → add 1 task (up to max 4)
+```
+
+### How to Deploy (Part 3)
+
+```bash
+cd Homework6/terraform
+terraform init
+terraform apply
+
+# Get ALB DNS from terraform output
+curl http://<ALB_DNS>/health
+curl http://<ALB_DNS>/products/search?q=Alpha
+```
+
+### How to Load Test (Part 3)
+
+```bash
+cd Homework6
+locust -f locustfile.py --host=http://<ALB_DNS>
+# Run 20 users, ramp up 20, 3 minutes
+```
+
+**What to watch in AWS Console:**
+- ECS > Service > Tasks tab (watch task count go from 2 → 3 → 4)
+- ECS > Service > Metrics (CPU per instance should stay lower than Part 2)
+- EC2 > Target Groups > Targets (see healthy instances)
+
+### File Summary (Part 3 changes)
+
+| File | Action | Description |
+|------|--------|-------------|
+| `terraform/modules/alb/main.tf` | Created | ALB, target group, listener, security group |
+| `terraform/modules/alb/variables.tf` | Created | service_name, vpc_id, subnet_ids, container_port |
+| `terraform/modules/alb/outputs.tf` | Created | alb_dns_name, target_group_arn, alb_security_group_id |
+| `terraform/modules/ecs/main.tf` | Modified | Added load_balancer block + auto scaling resources |
+| `terraform/modules/ecs/variables.tf` | Modified | Added target_group_arn variable |
+| `terraform/main.tf` | Modified | Added ALB module, passed target_group_arn to ECS |
+| `terraform/outputs.tf` | Modified | Added alb_dns_name output |

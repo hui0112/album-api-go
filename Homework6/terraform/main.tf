@@ -1,4 +1,4 @@
-# Part 2: Single ECS Fargate instance with no load balancer.
+# Part 3: ALB + Auto Scaling with ECS Fargate.
 
 module "network" {
   source         = "./modules/network"
@@ -17,6 +17,14 @@ module "logging" {
   retention_in_days = var.log_retention_days
 }
 
+module "alb" {
+  source         = "./modules/alb"
+  service_name   = var.service_name
+  vpc_id         = module.network.vpc_id
+  subnet_ids     = module.network.subnet_ids
+  container_port = var.container_port
+}
+
 data "aws_iam_role" "lab_role" {
   name = "LabRole"
 }
@@ -31,8 +39,9 @@ module "ecs" {
   execution_role_arn = data.aws_iam_role.lab_role.arn
   task_role_arn      = data.aws_iam_role.lab_role.arn
   log_group_name     = module.logging.log_group_name
-  ecs_count          = var.ecs_count
+  ecs_count          = 2
   region             = var.aws_region
+  target_group_arn   = module.alb.target_group_arn
 }
 
 # Build & push the Go app image into ECR
