@@ -1,0 +1,52 @@
+# Docker Compose for Crash & Recovery Demo
+# Three services: webapp (Go Gin), downstream (simulated dependency), Locust (load tester)
+
+version: '3'
+
+services:
+  # 1. Downstream service (simulated external dependency)
+  downstream:
+    build: ./downstream
+    ports:
+      - "9090:9090"
+    networks:
+      - loadtest-net
+
+  # 2. Main Go Gin server
+  webapp:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - RESILIENCE_ENABLED=false    # Change to "true" for Phase 2
+      - DOWNSTREAM_URL=http://downstream:9090
+    depends_on:
+      - downstream
+    networks:
+      - loadtest-net
+
+  # 3. Locust Master
+  master:
+    image: locustio/locust
+    ports:
+      - "8089:8089"
+    volumes:
+      - ./:/mnt/locust
+    command: -f /mnt/locust/locustfile_crash.py --master -H http://webapp:8080
+    networks:
+      - loadtest-net
+
+  # 4. Locust Worker
+  worker:
+    image: locustio/locust
+    volumes:
+      - ./:/mnt/locust
+    command: -f /mnt/locust/locustfile_crash.py --worker --master-host master
+    networks:
+      - loadtest-net
+    depends_on:
+      - master
+
+networks:
+  loadtest-net:
