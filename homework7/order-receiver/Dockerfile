@@ -1,0 +1,26 @@
+# Stage 1: Build the Go binary
+# We use a multi-stage build to keep the final image tiny (~11MB).
+# The build stage has the Go compiler; the runtime stage only has the binary.
+FROM golang:1.24-alpine AS build
+RUN apk add --no-cache git
+
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+# CGO_ENABLED=0: No C dependencies = fully static binary
+# GOOS=linux GOARCH=amd64: Cross-compile for Linux (ECS runs Linux)
+# -ldflags="-s -w": Strip debug symbols = smaller binary
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -ldflags="-s -w" -o server .
+
+# Stage 2: Minimal runtime image
+FROM alpine:latest
+RUN apk add --no-cache ca-certificates
+
+WORKDIR /app
+COPY --from=build /src/server .
+
+EXPOSE 8080
+ENTRYPOINT ["./server"]
