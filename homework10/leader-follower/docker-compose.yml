@@ -1,0 +1,67 @@
+version: "3.8"
+
+services:
+  leader:
+    build: .
+    ports:
+      - "8090:8080"
+    environment:
+      - ROLE=leader
+      - W_VALUE=${W_VALUE:-5}
+      - R_VALUE=${R_VALUE:-1}
+      - N_VALUE=5
+      - FOLLOWERS=follower1:8080,follower2:8080,follower3:8080,follower4:8080
+    networks:
+      - kvnet
+
+  follower1:
+    build: .
+    ports:
+      - "8081:8080"
+    environment:
+      - ROLE=follower
+      - W_VALUE=${W_VALUE:-5}
+      - R_VALUE=${R_VALUE:-1}
+      - N_VALUE=5
+    networks:
+      - kvnet
+
+  follower2:
+    build: .
+    ports:
+      - "8082:8080"
+    environment:
+      - ROLE=follower
+      - W_VALUE=${W_VALUE:-5}
+      - R_VALUE=${R_VALUE:-1}
+      - N_VALUE=5
+    networks:
+      - kvnet
+
+  follower3:
+    build: .
+    ports:
+      - "8083:8080"
+    environment:
+      - ROLE=follower
+      - W_VALUE=${W_VALUE:-5}
+      - R_VALUE=${R_VALUE:-1}
+      - N_VALUE=5
+    networks:
+      - kvnet
+
+  follower4:
+    build: .
+    ports:
+      - "8084:8080"
+    environment:
+      - ROLE=follower
+      - W_VALUE=${W_VALUE:-5}
+      - R_VALUE=${R_VALUE:-1}
+      - N_VALUE=5
+    networks:
+      - kvnet
+
+networks:
+  kvnet:
+    driver: bridge
